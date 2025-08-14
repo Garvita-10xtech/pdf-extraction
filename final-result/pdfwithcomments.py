@@ -37,38 +37,28 @@ class CompanyDataExtractor:
 
     # Extract all relevant company blocks from full text
     def extract_companies_from_text(self, text):
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
         companies = []
+        current_block = []
+    
+        for line in lines:
+        # If the line looks like a new company name
+            if self.looks_like_company_name(line):
+            # Process previous block
+                if current_block:
+                    company_data = self.parse_company_block('\n'.join(current_block))
+                    if self.is_valid_company(company_data):
+                        companies.append(company_data)
+            # Start a new block
+                current_block = [line]
+            else:
+                current_block.append(line)
 
-        # Remove page markers from text
-        text = re.sub(r'--- PAGE \d+ ---', '', text)
-
-        # Try multiple ways to split text into company blocks
-        company_blocks = []
-
-        # Match patterns that look like company names and grab associated block
-        company_pattern = r'([A-Z][A-Z\s&\(\)\.,-]{10,}(?:LIMITED|LTD|PRIVATE|PVT|CORPORATION|ENTERPRISES|INDUSTRIES|AUTHORITY|BUREAU|COMPANY|CO\.|INC|GROUP|ASSOCIATION).*?)(?=\n[A-Z][A-Z\s&\(\)\.,-]{10,}(?:LIMITED|LTD|PRIVATE|PVT|CORPORATION|ENTERPRISES|INDUSTRIES|AUTHORITY|BUREAU|COMPANY|CO\.|INC|GROUP|ASSOCIATION)|$)'
-        potential_blocks = re.findall(company_pattern, text, re.DOTALL | re.IGNORECASE)
-
-        # Also try splitting by Hall/STALL format
-        hall_stall_splits = re.split(r'HALL\s*:\s*\d+\s*[A-Z]*\s*STALL\s*:\s*[A-Z0-9\-]+', text, flags=re.IGNORECASE)
-
-        # Try splitting by address field
-        address_splits = re.split(r'\n(?=Address\s*:)', text, flags=re.IGNORECASE)
-
-        # Combine all extracted blocks
-        all_blocks = potential_blocks + hall_stall_splits + address_splits
-
-        for block in all_blocks:
-            if not block or len(block.strip()) < 50:  # Skip too-short garbage blocks
-                continue
-
-            # Check if the block has required structure
-            if self.has_company_structure(block):
-                company_data = self.parse_company_block(block)
-
-                # Only keep entries with valid company name
-                if company_data and company_data.get('company_name') and len(company_data['company_name']) > 3:
-                    companies.append(company_data)
+    # Process last block
+        if current_block:
+            company_data = self.parse_company_block('\n'.join(current_block))
+            if self.is_valid_company(company_data):
+                companies.append(company_data)
 
         return companies
 
@@ -282,7 +272,7 @@ class CompanyDataExtractor:
 # Main script that runs the extraction process
 def main():
     PDF_PATH = "D:/10xtech/projects/pdf extraction/Aahar 2025 Fair Guide.pdf"
-    OUTPUT_PATH = "company_data.xlsx"
+    OUTPUT_PATH = "company_data_new_append.xlsx"
 
     # Ensure the PDF exists
     if not Path(PDF_PATH).exists():
